@@ -1,0 +1,42 @@
+[
+  {
+    "sentiment": true,
+    "reason": "Phones contribute to mental health issues."
+  },
+  {
+    "sentiment": true,
+    "reason": "Phones prevent socialization between students."
+  },
+  {
+    "sentiment": false,
+    "reason": "Phones prevent socialization between students."
+  },
+  {
+    "sentiment": true,
+    "reason": "Phones reduce focus and engagement in learning."
+  },
+  {
+    "sentiment": false,
+    "reason": "Smartphones allow for instant communication with parents and authorities."
+  },
+  {
+    "sentiment": false,
+    "reason": "Smartphones can enhance learning through creative apps."
+  },
+  {
+    "sentiment": false,
+    "reason": "Smartphones can enhance learning through creative apps."
+  },
+  {
+    "sentiment": true,
+    "reason": "Phones contribute to mental health issues."
+  },
+  {
+    "sentiment": true,
+    "reason": "Phones reduce focus and engagement in learning."
+  },
+  {
+    "sentiment": true,
+    "reason": "Phones contribute to mental health issues."
+  }
+]
