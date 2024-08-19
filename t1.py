@@ -1,141 +1,164 @@
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from transformers import AutoTokenizer, AutoModel, pipeline
+from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
-from hdbscan import HDBSCAN
-from summarizer import Summarizer
+from sklearn.metrics import silhouette_score
+from collections import defaultdict
+import numpy as np
+from transformers import pipeline
+from kneed import KneeLocator
 
-# 1. Initialize models and tokenizers
-tokenizer = AutoTokenizer.from_pretrained("bert-large-uncased")
-bert_model = AutoModel.from_pretrained("bert-large-uncased")
-summarizer = Summarizer()
-sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
-
-# 2. Opinion embedding function
-def embed_opinion(text):
-    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
-    with torch.no_grad():
-        outputs = bert_model(**inputs)
-    return outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
-
-# 3. Clustering function
-def cluster_opinions(embeddings, min_cluster_size=5):
-    clusterer = HDBSCAN(min_cluster_size=min_cluster_size, metric='euclidean')
-    return clusterer.fit_predict(embeddings)
-
-# 4. Neural Network for opinion representation
-class OpinionNetwork(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
-        super(OpinionNetwork, self).__init__()
-        self.layer1 = nn.Linear(input_size, hidden_size)
-        self.layer2 = nn.Linear(hidden_size, output_size)
-        self.activation = nn.ReLU()
-
-    def forward(self, x):
-        x = self.activation(self.layer1(x))
-        x = self.layer2(x)
-        return x
-
-# 5. Summarization function
-def summarize_opinions(opinions, max_length=150):
-    full_text = " ".join(opinions)
-    return summarizer(full_text, max_length=max_length)
-
-# 6. Main opinion processing class
-class OpinionProcessor:
-    def __init__(self, input_size, hidden_size, output_size):
+class UnifiedOpinionProcessor:
+    def __init__(self, max_primary_clusters=5, max_secondary_clusters=3, min_cluster_size=2):
+        self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+        self.max_primary_clusters = max_primary_clusters
+        self.max_secondary_clusters = max_secondary_clusters
+        self.min_cluster_size = min_cluster_size
+        self.summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+        
         self.opinions = []
         self.embeddings = []
-        self.clusters = None
-        self.net = OpinionNetwork(input_size, hidden_size, output_size)
-        self.optimizer = optim.Adam(self.net.parameters())
-        self.criterion = nn.MSELoss()
+        self.primary_clusters = defaultdict(list)
+        self.secondary_clusters = defaultdict(lambda: defaultdict(list))
 
-    def add_opinions(self, new_opinions):
-        self.opinions.extend(new_opinions)
-        new_embeddings = [embed_opinion(opinion) for opinion in new_opinions]
-        self.embeddings.extend(new_embeddings)
-        self.update_clusters()
+    def process_opinions(self, opinions, predefined_categories=None):
+        self.opinions = opinions
+        self.embeddings = self.embedding_model.encode(self.opinions)
+        
+        if predefined_categories:
+            self.close_ended_clustering(predefined_categories)
+        else:
+            self.open_ended_clustering()
+        
+        self.perform_secondary_clustering()
+        return self.generate_summary()
 
-    def update_clusters(self):
-        self.clusters = cluster_opinions(np.array(self.embeddings))
+    def close_ended_clustering(self, categories):
+        category_embeddings = self.embedding_model.encode(categories)
+        distances = np.dot(self.embeddings, category_embeddings.T)
+        primary_labels = np.argmax(distances, axis=1)
+        
+        for opinion, label in zip(self.opinions, primary_labels):
+            self.primary_clusters[label].append(opinion)
+        
+        # Add "Other" category for opinions with low similarity to all categories
+        similarity_threshold = 0.5  # Adjust as needed
+        max_similarities = np.max(distances, axis=1)
+        other_opinions = [op for op, sim in zip(self.opinions, max_similarities) if sim < similarity_threshold]
+        if other_opinions:
+            self.primary_clusters["Other"] = other_opinions
 
-    def train_network(self):
-        cluster_weights = np.zeros(max(self.clusters) + 1)
-        for cluster in self.clusters:
-            cluster_weights[cluster] += 1
-        cluster_weights = cluster_weights / len(self.clusters)
+    def open_ended_clustering(self):
+        optimal_clusters = self.find_optimal_clusters(self.embeddings, self.max_primary_clusters)
+        kmeans = KMeans(n_clusters=optimal_clusters, random_state=42, n_init=10)
+        labels = kmeans.fit_predict(self.embeddings)
+        
+        for opinion, label in zip(self.opinions, labels):
+            self.primary_clusters[label].append(opinion)
 
-        input_data = np.concatenate([np.mean([self.embeddings[i] for i, c in enumerate(self.clusters) if c == cluster], axis=0) * weight 
-                                     for cluster, weight in enumerate(cluster_weights)])
-        
-        input_tensor = torch.FloatTensor(input_data).unsqueeze(0)
-        
-        self.optimizer.zero_grad()
-        output = self.net(input_tensor)
-        
-        # Here, you'd define a target based on your specific requirements
-        target = torch.FloatTensor(np.random.rand(output.size(1)))  # Placeholder
-        
-        loss = self.criterion(output.squeeze(), target)
-        loss.backward()
-        self.optimizer.step()
+    def perform_secondary_clustering(self):
+        for primary_label, cluster_opinions in self.primary_clusters.items():
+            if len(cluster_opinions) > self.min_cluster_size:
+                cluster_embeddings = self.embedding_model.encode(cluster_opinions)
+                optimal_secondary_clusters = self.find_optimal_clusters(cluster_embeddings, self.max_secondary_clusters)
+                
+                if optimal_secondary_clusters > 1:
+                    secondary_kmeans = KMeans(n_clusters=optimal_secondary_clusters, random_state=42, n_init=10)
+                    secondary_labels = secondary_kmeans.fit_predict(cluster_embeddings)
+                    
+                    for opinion, sec_label in zip(cluster_opinions, secondary_labels):
+                        self.secondary_clusters[primary_label][sec_label].append(opinion)
+                else:
+                    self.secondary_clusters[primary_label][0] = cluster_opinions
+            else:
+                self.secondary_clusters[primary_label][0] = cluster_opinions
 
-    def get_representation(self):
-        cluster_weights = np.zeros(max(self.clusters) + 1)
-        for cluster in self.clusters:
-            cluster_weights[cluster] += 1
-        cluster_weights = cluster_weights / len(self.clusters)
+    def find_optimal_clusters(self, embeddings, max_clusters):
+        if len(embeddings) <= 2:
+            return 1
 
-        input_data = np.concatenate([np.mean([self.embeddings[i] for i, c in enumerate(self.clusters) if c == cluster], axis=0) * weight 
-                                     for cluster, weight in enumerate(cluster_weights)])
-        
-        input_tensor = torch.FloatTensor(input_data).unsqueeze(0)
-        
-        with torch.no_grad():
-            output = self.net(input_tensor)
-        
-        return output.squeeze().numpy()
+        max_clusters = min(max_clusters, len(embeddings) - 1)
+        inertias = []
+        silhouette_scores = []
+
+        for k in range(2, max_clusters + 1):
+            kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+            labels = kmeans.fit_predict(embeddings)
+            inertias.append(kmeans.inertia_)
+            if k > 2:
+                silhouette_scores.append(silhouette_score(embeddings, labels))
+
+        kl = KneeLocator(range(2, max_clusters + 1), inertias, curve="convex", direction="decreasing")
+        elbow = kl.elbow if kl.elbow else 2
+
+        optimal_silhouette = silhouette_scores.index(max(silhouette_scores)) + 3 if silhouette_scores else 2
+
+        return min(elbow, optimal_silhouette)
+
+    def summarize_cluster(self, opinions):
+        if len(opinions) == 1:
+            return opinions[0]
+        full_text = " ".join(opinions)
+        summary = self.summarizer(full_text, max_length=50, min_length=10, do_sample=False)[0]['summary_text']
+        return summary
 
     def generate_summary(self):
-        representation = self.get_representation()
-        cluster_summaries = []
+        total_opinions = len(self.opinions)
+        summary = "Summary of opinions:\n\n"
         
-        for cluster in set(self.clusters):
-            cluster_opinions = [self.opinions[i] for i, c in enumerate(self.clusters) if c == cluster]
-            cluster_summary = summarize_opinions(cluster_opinions)
-            cluster_summaries.append(cluster_summary)
+        for primary_label, primary_opinions in self.primary_clusters.items():
+            primary_percentage = (len(primary_opinions) / total_opinions) * 100
+            if primary_percentage < (self.min_cluster_size / total_opinions) * 100:
+                continue  # Skip clusters smaller than the minimum size
+            
+            primary_summary = self.summarize_cluster(primary_opinions)
+            summary += f"{primary_percentage:.1f}% of opinions: {primary_summary}\n"
+            
+            for sec_label, sec_opinions in self.secondary_clusters[primary_label].items():
+                sec_percentage = (len(sec_opinions) / len(primary_opinions)) * 100
+                if len(sec_opinions) >= self.min_cluster_size:
+                    sec_summary = self.summarize_cluster(sec_opinions)
+                    if sec_summary != primary_summary:
+                        summary += f"  - {sec_percentage:.1f}% of this group: {sec_summary}\n"
+            
+            summary += "\n"
         
-        final_summary = summarize_opinions(cluster_summaries)
-        return final_summary
+        return summary
 
-    def analyze_sentiment(self, text):
-        result = sentiment_analyzer(text)[0]
-        return result['label'], result['score']
+# Test cases
+processor = UnifiedOpinionProcessor()
 
-# Usage example
-input_size = 1024  # BERT-large hidden size
-hidden_size = 512
-output_size = 256
-
-processor = OpinionProcessor(input_size, hidden_size, output_size)
-
-# Add some example opinions
-example_opinions = [
-    "I believe we should increase funding for public education.",
-    "Lower taxes would stimulate economic growth.",
-    "We need stricter environmental regulations to combat climate change.",
-    "The government should stay out of healthcare.",
-    "Immigration policies should be more lenient."
+# Open-ended question test
+open_ended_opinions = [
+    "The school should renovate the science labs with new equipment.",
+    "Upgrading the gymnasium would benefit many students.",
+    "The cafeteria needs better food options and more seating.",
+    "Modernizing classrooms with smart boards and tablets is essential.",
+    "The library needs more computers and study spaces.",
+    "Improving the outdoor sports facilities would be great for athletes.",
+    "We need better Wi-Fi coverage throughout the school.",
+    "The art room needs new supplies and more space for projects.",
+    "Renovating bathrooms should be a priority for hygiene reasons.",
+    "Creating a dedicated space for club meetings would be beneficial."
 ]
 
-processor.add_opinions(example_opinions)
-processor.train_network()
+print("Open-ended question results:")
+open_ended_summary = processor.process_opinions(open_ended_opinions)
+print(open_ended_summary)
 
-summary = processor.generate_summary()
-print("Generated Summary:", summary)
+# Close-ended question test
+close_ended_opinions = [
+    "Yes, phones distract students during class.",
+    "No, phones can be useful for research during lessons.",
+    "Yes, banning phones will improve student focus.",
+    "No, students need phones for emergency communication.",
+    "Yes, it will reduce cyberbullying in school.",
+    "No, phones are essential for modern education.",
+    "Yes, it will encourage more face-to-face interaction.",
+    "No, banning phones is impractical to enforce.",
+    "Yes, it will improve academic performance.",
+    "No, students should learn responsible phone use.",
+    "Maybe, we could have designated phone-use times instead."
+]
 
-sentiment, confidence = processor.analyze_sentiment(summary)
-print(f"Overall Sentiment: {sentiment}, Confidence: {confidence}")
+print("\nClose-ended question results:")
+close_ended_summary = processor.process_opinions(close_ended_opinions, predefined_categories=["Yes", "No"])
+print(close_ended_summary)
