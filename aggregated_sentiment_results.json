@@ -1,0 +1,99 @@
+{
+  "question": "Should phones be banned from schools?",
+  "total_opinions": 25,
+  "aggregated_results": [
+    {
+      "core_reason": "Phones contribute to mental health issues in students",
+      "sentiment": true,
+      "frequency": 4,
+      "nuances": [
+        "Increased phone usage correlates with rising depression rates among students.",
+        "Smartphones facilitate cyberbullying, impacting students' mental well-being.",
+        "Excessive smartphone use leads to sleep disturbances affecting students' mental health."
+      ]
+    },
+    {
+      "core_reason": "Phones hinder social interaction among students",
+      "sentiment": true,
+      "frequency": 2,
+      "nuances": [
+        "Phones distract students from face-to-face interactions during school hours.",
+        "Students often ignore school phone usage rules."
+      ]
+    },
+    {
+      "core_reason": "Phones hinder academic performance and focus",
+      "sentiment": true,
+      "frequency": 4,
+      "nuances": [
+        "Distractions from entertainment sources reduce students' ability to concentrate on studies.",
+        "Phones facilitate academic dishonesty, undermining the fairness of assessments.",
+        "Phone notifications interrupt classroom learning and focus."
+      ]
+    },
+    {
+      "core_reason": "Phones provide safety and communication benefits",
+      "sentiment": false,
+      "frequency": 6,
+      "nuances": [
+        "Instant communication enhances student safety and parental peace of mind.",
+        "Phones enable health monitoring for students with medical conditions.",
+        "Phones facilitate coordination for after-school activities and transportation.",
+        "Phones aid in documenting and reporting bullying or inappropriate behavior for safety.",
+        "Phones help students manage schedules for work and school commitments.",
+        "Phones provide internet access for students lacking home connectivity."
+      ]
+    },
+    {
+      "core_reason": "Phones enhance learning through educational apps",
+      "sentiment": false,
+      "frequency": 3,
+      "nuances": [
+        "Apps offer creative methods to enhance classroom learning experiences.",
+        "Phones provide access to diverse educational resources beyond apps.",
+        "Phones aid in organizing study materials through photo documentation."
+      ]
+    },
+    {
+      "core_reason": "Phones create inequality among students",
+      "sentiment": true,
+      "frequency": 1,
+      "nuances": [
+        "Economic disparity affects social interactions and access to educational resources."
+      ]
+    },
+    {
+      "core_reason": "Phones prepare students for a technology-driven workforce",
+      "sentiment": false,
+      "frequency": 2,
+      "nuances": [
+        "Phones may distract students from learning essential non-technical skills.",
+        "Phones can help students learn digital etiquette and online safety."
+      ]
+    },
+    {
+      "core_reason": "Phones increase risk of theft and property damage",
+      "sentiment": true,
+      "frequency": 1,
+      "nuances": [
+        "Phones can be targets for theft, leading to increased security concerns in schools."
+      ]
+    },
+    {
+      "core_reason": "Phones contribute to health risks due to radiation",
+      "sentiment": true,
+      "frequency": 1,
+      "nuances": [
+        "Potential cumulative radiation exposure from multiple phones in confined spaces."
+      ]
+    },
+    {
+      "core_reason": "Phones undermine authority of teachers and administration",
+      "sentiment": true,
+      "frequency": 1,
+      "nuances": [
+        "Phones can distract students, reducing respect for classroom rules and authority."
+      ]
+    }
+  ]
+}
