@@ -178,51 +178,22 @@ def save_aggregated_results(results, file_name):
     with open(file_name, 'w') as f:
         json.dump(results, f, indent=2)
 
-if __name__ == "__main__":
+def main(opinions, original_question):
     individual_results_file = "sentiment_results.json"
     aggregated_results_file = "results/aggregated_sentiment_results.json"
-    question = "Should phones be banned from schools?"
     
-    opinions = [
-        "Just as more kids began spending more time with their phones, we saw a massive spike in depression and mental illness.",
-        "Phones prevent socialization between students during school.",
-        "Despite what rules may exist, most students are using their phones during school",
-        "Phone usage reduces learning",
-        "Having a smartphone with you at all times gives you the ability to instantly communicate with someone else. Students are able to contact parents, guardians or the authorities without much hassle and vice versa.",
-        "Smartphones are all about the apps and the amazing things they can do, these apps can be used in a number of creative ways to facilitate their classroom learning experience.",
-        "With phones, students can access research, news and videos to enhance their learning.",
-        "Smartphones can be utilized for digital harassment in and out of school.",
-        "Students could become highly distracted from the many sources of entertainment.",
-        "Frequent usage of smartphones has been linked to negative effects on both physical and mental health.",
-        "Banning phones would eliminate the problem of cyberbullying during school hours.",
-        "The presence of phones in school creates inequality between students who can and cannot afford them.",
-        "Phones are essential for students with certain medical conditions to monitor their health.",
-        "The use of phones in schools prepares students for the technology-driven workforce they'll enter.",
-        "Phones can be used to cheat on tests and assignments, compromising academic integrity.",
-        "Banning phones would make it harder for students to coordinate after-school activities and rides home.",
-        "Phones can be used to document bullying or other inappropriate behavior in schools.",
-        "Allowing phones in school teaches students responsible use of technology.",
-        "Banning phones would reduce the risk of theft and property damage in schools.",
-        "The radiation from multiple phones in a classroom could potentially be harmful to health.",
-        "Phones can be disruptive when they ring or vibrate during class.",
-        "Banning phones would make it harder for students to balance part-time jobs and school responsibilities.",
-        "Phones can be used to take photos of notes and assignments, helping students stay organized.",
-        "Allowing phones in school helps bridge the digital divide for students without internet access at home.",
-        "The use of phones in school undermines the authority of teachers and school administration."
-    ]
-
     # Clear previous results
     clear_sentiment_results("sentiment_results.json")
     clear_sentiment_results("aggregated_sentiment_results.json")
 
     aggregated_results = {
-        "question": question,
+        "question": original_question,
         "total_opinions": 0,
         "core_reasons": []
     }
     
     for opinion in opinions:
-        result = analyze_opinion(question, opinion, aggregated_results["core_reasons"])
+        result = analyze_opinion(original_question, opinion, aggregated_results["core_reasons"])
         if result:
             store_result(result, individual_results_file)
             aggregated_results["core_reasons"] = update_core_reasons(result, aggregated_results["core_reasons"])
@@ -232,3 +203,35 @@ if __name__ == "__main__":
     save_aggregated_results(aggregated_results, aggregated_results_file)
 
     print("Sentiment analysis complete. Results have been saved to the respective files.")
+
+if __name__ == "__main__":
+    # Example usage
+    question = "Should phones be banned from schools?"
+    opinions = [
+    "Just as more kids began spending more time with their phones, we saw a massive spike in depression and mental illness.",
+    "Phones prevent socialization between students during school.",
+    "Despite what rules may exist, most students are using their phones during school",
+    "Phone usage reduces learning",
+    "Having a smartphone with you at all times gives you the ability to instantly communicate with someone else. Students are able to contact parents, guardians or the authorities without much hassle and vice versa.",
+    "Smartphones are all about the apps and the amazing things they can do, these apps can be used in a number of creative ways to facilitate their classroom learning experience.",
+    "With phones, students can access research, news and videos to enhance their learning.",
+    "Smartphones can be utilized for digital harassment in and out of school.",
+    "Students could become highly distracted from the many sources of entertainment.",
+    "Frequent usage of smartphones has been linked to negative effects on both physical and mental health.",
+    "Banning phones would eliminate the problem of cyberbullying during school hours.",
+    "The presence of phones in school creates inequality between students who can and cannot afford them.",
+    "Phones are essential for students with certain medical conditions to monitor their health.",
+    "The use of phones in schools prepares students for the technology-driven workforce they'll enter.",
+    "Phones can be used to cheat on tests and assignments, compromising academic integrity.",
+    "Banning phones would make it harder for students to coordinate after-school activities and rides home.",
+    "Phones can be used to document bullying or other inappropriate behavior in schools.",
+    "Allowing phones in school teaches students responsible use of technology.",
+    "Banning phones would reduce the risk of theft and property damage in schools.",
+    "The radiation from multiple phones in a classroom could potentially be harmful to health.",
+    "Phones can be disruptive when they ring or vibrate during class.",
+    "Banning phones would make it harder for students to balance part-time jobs and school responsibilities.",
+    "Phones can be used to take photos of notes and assignments, helping students stay organized.",
+    "Allowing phones in school helps bridge the digital divide for students without internet access at home.",
+    "The use of phones in school undermines the authority of teachers and school administration."
+    ]
+    main(opinions, question)
